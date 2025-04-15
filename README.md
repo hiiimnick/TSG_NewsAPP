@@ -1,77 +1,69 @@
-# tsg_newsapp
+# TSG News App
 
 ## Overview
-tsg_newsapp is a Flutter application designed to provide users with a seamless experience for browsing and managing news articles. The app fetches news from an API, allows users to mark articles as favorites, and provides various functionalities such as searching, filtering, and sorting news items.
+TSG News App is a Flutter application for browsing news articles from the Hacker News Algolia API. It features infinite scrolling, search, filtering, sorting, and lets users save favorite articles locally.
 
 ## Features
-- **News Feed**: Displays a list of news articles fetched from an external API.
-- **Favorites**: Users can mark news articles as favorites, which are stored using the `shared_preferences` package.
-- **Favorites Page**: A dedicated page to view all favorite news articles.
-- **News Details**: Users can view detailed information about each news article.
-- **Search Functionality**: Users can search for news articles by keywords.
-- **Filter and Sort**: Options to filter news by categories and sort them based on various criteria.
-- **Calendar Page**: A calendar interface that allows users to select dates and view news published on those days.
+- **Infinite Scrolling News Feed:** Browse top news with automatic loading as you scroll.
+- **Search:** Find news articles by keywords, with infinite scroll for results.
+- **Filtering:** Filter news by minimum points or by a specific date range.
+- **Sorting:** Sort articles by date or points, ascending or descending.
+- **News Details:** View article details and the first few comments.
+- **Show More Comments:** Open the full Hacker News comment section in your browser.
+- **Favorites:** Mark articles as favorites, stored locally using `shared_preferences`.
 
 ## Project Structure
 ```
 tsg_newsapp
 ├── lib
-│   ├── api
-│   │   ├── news_api.dart
-│   │   └── api_constants.dart
-│   ├── models
-│   │   ├── news_model.dart
-│   │   └── category_model.dart
+│   ├── API
+│   │   └── NewsAPI.dart
+│   ├── classes
+│   │   └── NewsModel.dart
 │   ├── providers
-│   │   ├── news_provider.dart
-│   │   └── favorites_provider.dart
+│   │   ├── NewsProvider.dart
+│   │   └── FavoritesProvider.dart
 │   ├── screens
-│   │   ├── home_screen.dart
-│   │   ├── news_detail_screen.dart
-│   │   ├── favorites_screen.dart
-│   │   ├── search_screen.dart
-│   │   └── calendar_screen.dart
+│   │   ├── HomeScreen.dart
+│   │   └── NewsDetailScreen.dart
 │   ├── widgets
-│   │   ├── news_card.dart
-│   │   ├── category_chips.dart
-│   │   ├── search_bar.dart
-│   │   ├── filter_dialog.dart
-│   │   └── sort_dropdown.dart
-│   ├── utils
-│   │   ├── date_formatter.dart
-│   │   └── shared_prefs_helper.dart
-│   ├── constants
-│   │   ├── theme.dart
-│   │   └── strings.dart
+│   │   ├── NewsCard.dart
+│   │   └── Filter.dart
 │   └── main.dart
 ├── pubspec.yaml
 └── README.md
 ```
 
 ## Setup Instructions
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   ```
-2. Navigate to the project directory:
-   ```
-   cd tsg_newsapp
-   ```
-3. Install the dependencies:
-   ```
-   flutter pub get
-   ```
-4. Run the application:
-   ```
-   flutter run
-   ```
+1. **Clone the repository:**
+    ```bash
+    git clone https://github.com/hiiimnick/TSG_NewsAPP.git
+    ```
+2. **Navigate to the project directory:**
+    ```bash
+    cd tsg_newsapp
+    ```
+3. **Install dependencies:**
+    ```bash
+    flutter pub get
+    ```
+4. **Run the application:**
+    ```bash
+    flutter run
+    ```
 
-## Dependencies
-- `flutter`: The Flutter SDK.
-- `shared_preferences`: For storing user preferences and favorite news articles.
+## Key Dependencies
+- `flutter`
+- `provider`
+- `http`
+- `shared_preferences`
+- `url_launcher`
+- `intl`
+- `html_unescape`
+- `table_calendar` (if CalendarScreen is used)
 
 ## Contributing
-Contributions are welcome! Please feel free to submit a pull request or open an issue for any suggestions or improvements.
+Contributions are welcome! Please submit a pull request or open an issue for suggestions or improvements.
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
