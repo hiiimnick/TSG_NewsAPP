@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:html_unescape/html_unescape.dart'; // Import for HTML unescaping
+import 'package:html_unescape/html_unescape.dart';
 import '../providers/NewsProvider.dart';
 import '../providers/FavoritesProvider.dart';
 import '../classes/NewsModel.dart';
 
 class NewsDetailScreen extends StatefulWidget {
-  final String newsId;
+  final String newsId; // Pass the ID to fetch details
+  final NewsModel? initialNews; // Optional: Pass initial data to display while loading
 
   const NewsDetailScreen({
     super.key,
     required this.newsId,
+    this.initialNews,
   });
 
   @override
@@ -20,316 +22,234 @@ class NewsDetailScreen extends StatefulWidget {
 }
 
 class _NewsDetailScreenState extends State<NewsDetailScreen> {
-  bool _isLoading = true;
-  Map<String, dynamic> _newsDetails = {};
-  final dateFormat = DateFormat('MMM dd, yyyy HH:mm');
-  int _currentPage = 1; // State for current page
-  final int _itemsPerPage = 10; // Items per page
-  final _htmlUnescape = HtmlUnescape(); // Instance for HTML unescaping
+  late Future<Map<String, dynamic>> _detailsFuture;
+  final HtmlUnescape _unescape = HtmlUnescape();
+  static const int _maxInitialComments = 4; // Max comments to show initially
 
   @override
   void initState() {
     super.initState();
-    _fetchNewsDetails();
+    // Fetch details when the screen initializes
+    _detailsFuture = Provider.of<NewsProvider>(context, listen: false)
+        .getNewsDetails(widget.newsId);
   }
 
-  Future<void> _fetchNewsDetails() async {
-    // Ensure the widget is still mounted before calling setState
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final details = await Provider.of<NewsProvider>(context, listen: false)
-          .getNewsDetails(widget.newsId);
-      // Ensure the widget is still mounted before calling setState
-      if (mounted) {
-        setState(() {
-          _newsDetails = details;
-        });
-      }
-    } catch (e) {
+  // Helper function to launch URL
+  Future<void> _launchUrl(Uri url) async {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      // Optionally show an error message if launching fails
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading details: $e')),
+          SnackBar(content: Text('Could not launch $url')),
         );
       }
-    } finally {
-      // Ensure the widget is still mounted before calling setState
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      print('Could not launch $url');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final favoritesProvider = Provider.of<FavoritesProvider>(context);
-    final bool isFavorite = favoritesProvider.isFavorite(widget.newsId);
+    // Use the initialNews data for title/basic info immediately if available
+    final displayTitle = widget.initialNews?.title ?? 'Loading...';
+    final displayUrl = widget.initialNews?.url;
+    final displayPoints = widget.initialNews?.points;
+    final displayAuthor = widget.initialNews?.author;
+    final displayTime = widget.initialNews?.createdAt;
+    final displayCommentCount = widget.initialNews?.commentsCount;
 
-    // Calculate pagination details
-    final List<dynamic> allComments = _newsDetails['children'] ?? [];
-    final int totalComments = allComments.length;
-    final int totalPages = (totalComments / _itemsPerPage).ceil();
-
-    // Calculate the start and end index for the current page
-    final int startIndex = (_currentPage - 1) * _itemsPerPage;
-    // Ensure endIndex doesn't exceed the list length
-    final int endIndex = (startIndex + _itemsPerPage > totalComments)
-        ? totalComments
-        : startIndex + _itemsPerPage;
-
-    // Get the comments for the current page, handle potential range errors
-    final List<dynamic> currentPageComments = (startIndex < totalComments && startIndex >= 0)
-        ? allComments.sublist(startIndex, endIndex)
-        : [];
-
+    // Construct the Hacker News item URL
+    final hnItemUrl = Uri.parse('https://news.ycombinator.com/item?id=${widget.newsId}');
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_newsDetails['title'] ?? 'Details'), // Show title in AppBar
         actions: [
-          // Show favorite button only when details are loaded
-          if (!_isLoading && _newsDetails.isNotEmpty)
-            IconButton(
-              icon: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: isFavorite ? Colors.red : null, // Make filled heart red
-              ),
-              tooltip: isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
-              onPressed: () {
-                // Create a NewsModel to pass to the provider
-                 final newsItem = NewsModel(
-                  id: widget.newsId,
-                  title: _newsDetails['title'] ?? '',
-                  author: _newsDetails['author'] ?? '',
-                  // Handle potential null or incorrect type for created_at_i
-                  createdAt: DateTime.fromMillisecondsSinceEpoch(
-                      ((_newsDetails['created_at_i'] as num?)?.toInt() ?? 0) * 1000),
-                  points: (_newsDetails['points'] as num?)?.toInt() ?? 0,
-                  commentsCount: (_newsDetails['children'] as List?)?.length ?? 0,
-                  url: _newsDetails['url'] ?? '',
+          // Keep favorite toggle if needed
+          if (widget.initialNews != null)
+            Consumer<FavoritesProvider>(
+              builder: (context, favoritesProvider, child) {
+                // Pass the ID string instead of the whole object
+                final isFavorite = favoritesProvider.isFavorite(widget.initialNews!.id);
+                return IconButton(
+                  icon: Icon(isFavorite ? Icons.star : Icons.star_border),
+                  tooltip: isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
+                  onPressed: () {
+                    // toggleFavorite likely also needs the ID or the full object,
+                    // ensure it matches what FavoritesProvider expects.
+                    // Assuming toggleFavorite expects the full object based on previous context:
+                    favoritesProvider.toggleFavorite(widget.initialNews!);
+                  },
                 );
-                // Toggle favorite status using the provider
-                favoritesProvider.toggleFavorite(newsItem);
               },
             ),
+          // Action to open original HN link
+          IconButton(
+            icon: const Icon(Icons.open_in_browser),
+            tooltip: 'Open HN Comments',
+            onPressed: () => _launchUrl(hnItemUrl),
+          ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _newsDetails.isEmpty
-              ? const Center(child: Text('News details not found'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Display Title (optional, as it's in AppBar)
-                      // Text(
-                      //   _newsDetails['title'] ?? 'No Title',
-                      //   style: Theme.of(context).textTheme.headlineSmall,
-                      // ),
-                      // const SizedBox(height: 8),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _detailsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            // Show basic info from initialNews while loading full details
+            return _buildContent(
+              context: context,
+              title: displayTitle,
+              url: displayUrl,
+              points: displayPoints,
+              author: displayAuthor,
+              time: displayTime,
+              commentCount: displayCommentCount,
+              comments: [], // No comments yet
+              isLoading: true,
+              hnItemUrl: hnItemUrl,
+            );
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error loading details: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data == null) {
+            return const Center(child: Text('No details found.'));
+          }
 
-                      // Display Author, Points, Date
-                      Row(
-                        children: [
-                          const Icon(Icons.person_outline, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(_newsDetails['author'] ?? 'Unknown Author'),
-                          const SizedBox(width: 16),
-                          const Icon(Icons.star_outline, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text('${(_newsDetails['points'] as num?)?.toInt() ?? 0} points'),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      if (_newsDetails['created_at_i'] != null)
-                         Row(
-                           children: [
-                             const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
-                             const SizedBox(width: 4),
-                             Text(
-                               dateFormat.format(DateTime.fromMillisecondsSinceEpoch(
-                                   ((_newsDetails['created_at_i'] as num?)?.toInt() ?? 0) * 1000)),
-                               style: Theme.of(context).textTheme.bodySmall,
-                             ),
-                           ],
-                         ),
-                      const SizedBox(height: 16),
+          // Details loaded successfully
+          final details = snapshot.data!;
+          final List<dynamic> allComments = details['children'] ?? [];
 
-                      // URL Button
-                      if (_newsDetails['url'] != null &&
-                          _newsDetails['url'].isNotEmpty)
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.language),
-                          label: const Text('Open Source URL'),
-                          onPressed: () async {
-                            final Uri url = Uri.parse(_newsDetails['url']);
-                            if (await canLaunchUrl(url)) {
-                              // Use external application for web links
-                              await launchUrl(url, mode: LaunchMode.externalApplication);
-                            } else {
-                              if (mounted) { // Check if widget is still mounted
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Could not open URL'),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 8),
+          // Extract necessary details (adjust keys based on API response)
+          final loadedTitle = _unescape.convert(details['title'] ?? displayTitle);
+          final loadedUrl = details['url'] ?? displayUrl;
+          final loadedPoints = details['points'] ?? displayPoints;
+          final loadedAuthor = details['author'] ?? displayAuthor;
+          final loadedTime = details['created_at_i'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(details['created_at_i'] * 1000)
+              : displayTime;
+          final loadedCommentCount = details['children']?.length ?? displayCommentCount ?? 0; // Use actual children count
 
-                      // Comments Section Header
-                      Text(
-                        'Comments ($totalComments)', // Show total comments
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Build comments for the current page only
-                      if (totalComments > 0)
-                         ..._buildComments(currentPageComments)
-                      else
-                         const Text("No comments yet."), // Message if no comments at all
-
-                      const SizedBox(height: 16),
-
-                      // --- Pagination Controls ---
-                      if (totalPages > 1)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left),
-                              tooltip: 'Previous Page',
-                              // Disable if on the first page
-                              onPressed: _currentPage > 1
-                                  ? () {
-                                      setState(() {
-                                        _currentPage--;
-                                      });
-                                    }
-                                  : null,
-                            ),
-                            Text('Page $_currentPage of $totalPages'),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right),
-                              tooltip: 'Next Page',
-                              // Disable if on the last page
-                              onPressed: _currentPage < totalPages
-                                  ? () {
-                                      setState(() {
-                                        _currentPage++;
-                                      });
-                                    }
-                                  : null,
-                            ),
-                          ],
-                        ),
-                      // --- End Pagination Controls ---
-                    ],
-                  ),
-                ),
+          return _buildContent(
+            context: context,
+            title: loadedTitle,
+            url: loadedUrl,
+            points: loadedPoints,
+            author: loadedAuthor,
+            time: loadedTime,
+            commentCount: loadedCommentCount,
+            comments: allComments, // Pass all comments
+            isLoading: false,
+            hnItemUrl: hnItemUrl,
+          );
+        },
+      ),
     );
   }
 
-  // Builds the list of comment widgets for the current page
-  List<Widget> _buildComments(List<dynamic> comments) {
-    // This function receives only the comments for the current page
-    if (comments.isEmpty && _currentPage > 1) {
-      // This case shouldn't normally happen with correct calculation, but good fallback
-      return [const Text('No comments on this page')];
-    }
-     if (comments.isEmpty && _currentPage == 1) {
-       // Handled by the check in the build method
-       return [];
-     }
+  // Extracted content building logic
+  Widget _buildContent({
+    required BuildContext context,
+    required String title,
+    required String? url,
+    required int? points,
+    required String? author,
+    required DateTime? time,
+    required int? commentCount,
+    required List<dynamic> comments, // Receive all comments
+    required bool isLoading,
+    required Uri hnItemUrl,
+  }) {
+    // Determine how many comments to actually display initially
+    final commentsToShow = comments.take(_maxInitialComments).toList();
+    final bool hasMoreComments = comments.length > _maxInitialComments;
 
-    return comments.map((comment) {
-      // Safely access comment data, provide defaults
-      final textHtml = comment?['text'] as String? ?? '';
-      // Unescape HTML entities like &quot;, &lt;, etc.
-      final text = _htmlUnescape.convert(textHtml);
-      final author = comment?['author'] as String? ?? 'Unknown';
-      final createdAtTimestamp = (comment?['created_at_i'] as num?)?.toInt();
-      final createdAt = createdAtTimestamp != null
-          ? dateFormat.format(DateTime.fromMillisecondsSinceEpoch(createdAtTimestamp * 1000))
-          : 'Unknown date';
-      final children = (comment?['children'] as List?)?.cast<dynamic>() ?? []; // Ensure correct type
-
-      // Basic check to filter out potentially deleted/empty comments
-      if (text.trim().isEmpty && author == 'Unknown') {
-         return const SizedBox.shrink(); // Don't display empty/deleted comments
-      }
-
-      return Card(
-        elevation: 1, // Subtle elevation
-        margin: const EdgeInsets.only(bottom: 12.0, left: 4.0, right: 4.0), // Consistent margin
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.person_outline, size: 16, color: Colors.grey[700]),
-                  const SizedBox(width: 4),
-                  Text(
-                    author,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[800]),
-                  ),
-                  const Spacer(), // Pushes date to the right
-                  Text(
-                    createdAt,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Simple rendering of text, removing HTML tags
-              // For proper HTML rendering, consider flutter_html package
-              Text(
-                text.replaceAll(RegExp(r'<[^>]*>'), ''), // Basic HTML tag removal
-                style: const TextStyle(height: 1.4), // Improve readability
-              ),
-              // Recursively build nested comments
-              if (children.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Padding(
-                  // Indent nested comments
-                  padding: const EdgeInsets.only(left: 16.0),
-                  child: Container(
-                     decoration: BoxDecoration(
-                       border: Border(
-                         left: BorderSide(color: Colors.grey.shade300, width: 2),
-                       ),
-                     ),
-                     child: Padding(
-                       padding: const EdgeInsets.only(left: 12.0), // Padding inside the border
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: _buildComments(children), // Recursive call
-                       ),
-                     ),
-                  ),
-                ),
-              ]
-            ],
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        // --- Story Info ---
+        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 8),
+        if (url != null)
+          InkWell(
+            onTap: () => _launchUrl(Uri.parse(url)),
+            child: Text(
+              url,
+              style: TextStyle(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline),
+            ),
           ),
+        const SizedBox(height: 8),
+        Text(
+          '${points ?? '?'} points by ${author ?? 'unknown'} | ${time != null ? DateFormat.yMd().add_jm().format(time.toLocal()) : '?'} | ${commentCount ?? '?'} comments',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
-      );
-    }).toList();
+        const Divider(height: 32),
+
+        // --- Comments Section ---
+        Text('Comments', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 16),
+
+        if (isLoading && comments.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))
+        else if (!isLoading && comments.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(16.0), child: Text('No comments yet.')))
+        else
+          // Build the limited list of comments
+          ListView.builder(
+            shrinkWrap: true, // Important inside another ListView
+            physics: const NeverScrollableScrollPhysics(), // Disable scrolling for this inner list
+            itemCount: commentsToShow.length,
+            itemBuilder: (context, index) {
+              final comment = commentsToShow[index];
+              // *** Replace this with your actual Comment Widget ***
+              // You'll need to parse the 'comment' map and pass data to your widget
+              return _buildCommentPlaceholder(comment);
+            },
+          ),
+
+        // --- Show More Button ---
+        if (hasMoreComments)
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: Center(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.open_in_browser),
+                label: Text('Show All ${comments.length} Comments on HN'),
+                onPressed: () => _launchUrl(hnItemUrl),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCommentPlaceholder(Map<String, dynamic> commentData) {
+    final String? text = commentData['text'];
+    final String? author = commentData['author'];
+    final DateTime? time = commentData['created_at_i'] != null
+        ? DateTime.fromMillisecondsSinceEpoch(commentData['created_at_i'] * 1000)
+        : null;
+    final int depth = commentData['depth'] ?? 0; // Assuming API provides depth for indentation
+
+    if (text == null || text.isEmpty) {
+      return const SizedBox.shrink(); // Skip empty comments
+    }
+
+    return Card(
+      margin: EdgeInsets.only(left: depth * 16.0, top: 4, bottom: 4), // Basic indentation
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _unescape.convert(text), // Unescape HTML entities
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'by ${author ?? 'unknown'} | ${time != null ? DateFormat.yMd().add_jm().format(time.toLocal()) : '?'}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -41,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> {
         newsProvider.hasMore &&
         !newsProvider.isLoading &&
         !newsProvider.isLoadingMore) {
-      print("Scroll near bottom, fetching more news...");
       newsProvider.fetchMoreNews();
     }
   }
@@ -59,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: InputBorder.none,
                   hintStyle: TextStyle(color: Theme.of(context).hintColor),
                 ),
-                style: TextStyle(color: Theme.of(context).appBarTheme.titleTextStyle?.color ?? Colors.white, fontSize: 18), // Match AppBar style
+                style: TextStyle(color: Theme.of(context).appBarTheme.titleTextStyle?.color ?? Colors.black, fontSize: 18), // Match AppBar style
                 onSubmitted: (value) {
                   // Trigger search only if value is not empty
                   if (value.trim().isNotEmpty) {
