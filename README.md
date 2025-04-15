@@ -50,7 +50,7 @@ tsg_newsapp
     ```bash
     flutter build apk --release
     ```
-5. **(OPTIONAL) Install the application to an Android VM:**
+5. **(OPTIONAL) Install the application to a connected Android phone or VM:**
    ```bash
    flutter install --release
    ```
