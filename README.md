@@ -4,7 +4,6 @@
 TSG News App is a Flutter application for browsing news articles from the Hacker News Algolia API. It features infinite scrolling, search, filtering, sorting, and lets users save favorite articles locally.
 
 ## Features
-- **Infinite Scrolling News Feed:** Browse top news with automatic loading as you scroll.
 - **Search:** Find news articles by keywords, with infinite scroll for results.
 - **Filtering:** Filter news by minimum points or by a specific date range.
 - **Sorting:** Sort articles by date or points, ascending or descending.
