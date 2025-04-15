@@ -46,10 +46,14 @@ tsg_newsapp
     ```bash
     flutter pub get
     ```
-4. **Run the application:**
+4. **Build the application:**
     ```bash
-    flutter run
+    flutter build apk --release
     ```
+5. **(OPTIONAL) Install the application to an Android VM:**
+   ```bash
+   flutter install --release
+   ```
 
 ## Release Version and Instructions
 1. Go to the releases tab [here](https://github.com/hiiimnick/TSG_NewsAPP/releases/tag/DEMO).
