@@ -1,7 +1,7 @@
 # TSG News App
 
 ## Overview
-TSG News App is a Flutter application for browsing news articles from the Hacker News Algolia API. It features infinite scrolling, search, filtering, sorting, and lets users save favorite articles locally.
+TSG News App is a Flutter application for browsing news articles from the Hacker News Algolia API. It features search, filtering, sorting, and lets users save favorite articles locally.
 
 ## Features
 - **Search:** Find news articles by keywords, with infinite scroll for results.
@@ -50,6 +50,11 @@ tsg_newsapp
     ```bash
     flutter run
     ```
+
+## Release Version and Instructions
+1. Go to the releases tab [here](https://github.com/hiiimnick/TSG_NewsAPP/releases/tag/DEMO).
+2. Download the DEMO build on your Android Device.
+3. Install the DEMO build on your Android Device.
 
 ## Key Dependencies
 - `flutter`
